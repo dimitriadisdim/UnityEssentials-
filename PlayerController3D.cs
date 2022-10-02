@@ -1,8 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine.InputSystem;
 using UnityEngine;
+using UnityEngine.AI;
 
 public class PlayerController : MonoBehaviour
 {
@@ -17,8 +19,9 @@ public class PlayerController : MonoBehaviour
     private bool _canInspect;
     private bool _canMove;
     private Camera _camera;
+    private UiManager _ui;
     private Input _input;
-
+    
     private void Awake()
     {
         //Initialize input
@@ -30,7 +33,7 @@ public class PlayerController : MonoBehaviour
         _input.Player.Look.performed += ctx => _lookPos = ctx.ReadValue<Vector2>();
         _input.Player.Look.canceled += ctx => _lookPos = Vector2.zero;
     }
-
+    
     // Start is called before the first frame update
     void Start()
     {
@@ -41,6 +44,7 @@ public class PlayerController : MonoBehaviour
         _canMove = true;
         _canInspect = true;
         _camera = Camera.main;
+        _ui = UiManager.Instance;
         _lookAt = transform.GetChild(0).gameObject;
         _controller = gameObject.GetComponent<CharacterController>();
     }
@@ -54,7 +58,7 @@ public class PlayerController : MonoBehaviour
             Raycast();
         Look();
     }
-
+    
     #region InputAction
     private void OnEnable() => _input.Player.Enable();
 
@@ -64,8 +68,18 @@ public class PlayerController : MonoBehaviour
     #region Movement
     private void Move()
     {
-        var move = new Vector3(_motion.x * spd , 0, _motion.y * spd);
-        _controller.Move(move);
+        var forward = _camera.transform.forward;
+        var right = _camera.transform.right;
+        
+        //We dont want to move on the y axis
+        forward.y = 0f;
+        right.y = 0f;
+        forward.Normalize();
+        right.Normalize();
+        
+        //Apply movement
+        var move = forward * _motion.y + right;
+        _controller.Move(move * spd);
     }
 
     private void Look()
@@ -80,8 +94,16 @@ public class PlayerController : MonoBehaviour
         RaycastHit hit;
         var ray = _camera.ScreenPointToRay(UnityEngine.Input.mousePosition);
         var mask = LayerMask.GetMask("Inspect");
-        if (Physics.Raycast(ray, _raycastRange, mask)) {
-
+        if (Physics.Raycast(ray,out hit, _raycastRange, mask)) {
+            var n = hit.transform.name;
+            if(string.IsNullOrEmpty(n))
+                return;
+            _ui.ShowName(n);
         }
+        else
+            _ui.ClearName();
+
+
     }
 }
+
