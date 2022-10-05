@@ -15,13 +15,12 @@ public class PlayerController : MonoBehaviour
     private Vector2 _lookPos;
     private Vector2 _motion;
     private float _raycastRange;
-    private float _maxClamp;
     private bool _canInspect;
     private bool _canMove;
     private Camera _camera;
     private UiManager _ui;
     private Input _input;
-    
+
     private void Awake()
     {
         //Initialize input
@@ -31,15 +30,14 @@ public class PlayerController : MonoBehaviour
         _input.Player.Move.canceled += ctx => _motion = Vector2.zero;
         //Look
         _input.Player.Look.performed += ctx => _lookPos = ctx.ReadValue<Vector2>();
-        _input.Player.Look.canceled += ctx => _lookPos = Vector2.zero;
+        //_input.Player.Look.canceled += ctx => _lookPos = Vector2.zero
     }
-    
+
     // Start is called before the first frame update
     void Start()
     {
         //Set up default values
         spd = 0.1f;
-        _maxClamp = 80;
         _raycastRange = 3;
         _canMove = true;
         _canInspect = true;
@@ -58,7 +56,7 @@ public class PlayerController : MonoBehaviour
             Raycast();
         Look();
     }
-    
+
     #region InputAction
     private void OnEnable() => _input.Player.Enable();
 
@@ -68,25 +66,26 @@ public class PlayerController : MonoBehaviour
     #region Movement
     private void Move()
     {
-        var forward = _camera.transform.forward;
-        var right = _camera.transform.right;
-        
+        var cameraTransform = _camera.transform;
+        var forward = cameraTransform.forward;
+        var right = cameraTransform.right;
+
         //We dont want to move on the y axis
         forward.y = 0f;
         right.y = 0f;
         forward.Normalize();
         right.Normalize();
-        
+
         //Apply movement
-        var move = forward * _motion.y + right;
+        var move = forward * _motion.y + right * _motion.x;
         _controller.Move(move * spd);
     }
 
     private void Look()
     {
-        var pos = _lookAt.transform.position;
-        pos+= new Vector3(_lookPos.x,_lookPos.y);
-        _lookAt.transform.position = new Vector3(Math.Clamp(pos.x,-_maxClamp,_maxClamp), Math.Clamp(pos.y,-_maxClamp,_maxClamp));
+        // var pos = _lookAt.transform.position;
+        // pos+= new Vector3(_lookPos.x,_lookPos.y);
+        //_lookAt.transform.position = new Vectosr3(Math.Clamp(pos.x,-_maxClamp,_maxClamp), Math.Clamp(pos.y,-_maxClamp,_maxClamp));
     }
     #endregion
     private void Raycast()
@@ -94,16 +93,18 @@ public class PlayerController : MonoBehaviour
         RaycastHit hit;
         var ray = _camera.ScreenPointToRay(UnityEngine.Input.mousePosition);
         var mask = LayerMask.GetMask("Inspect");
-        if (Physics.Raycast(ray,out hit, _raycastRange, mask)) {
-            var n = hit.transform.name;
-            if(string.IsNullOrEmpty(n))
+        if (Physics.Raycast(ray, out hit, _raycastRange, mask)) {
+            var obj = hit.transform.gameObject;
+            if(string.IsNullOrEmpty(obj.name))
                 return;
-            _ui.ShowName(n);
-        }
-        else
+
+            _ui.ShowName(obj.name);
+
+            if (_input.Player.Interact.triggered && obj.GetComponent<IInteract>() != null)
+                obj.GetComponent<IInteract>().Interact();
+        }else
             _ui.ClearName();
 
 
     }
 }
-
